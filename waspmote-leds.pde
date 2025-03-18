@@ -95,9 +95,9 @@ void loop() {
         
         // Process command based on the command type
         if (strcmp(cmd, "blink") == 0) {
-            // Handle blink command: blink [red/green] [cron/0/-1/n]
+            // Handle blink command: blink [red/green] [0/-1/n]
             if (arg1Idx == 0 || arg2Idx == 0) {
-                USB.println(F("blink requires two arguments: [red/green] [cron/0/-1/n]"));
+                USB.println(F("blink requires two arguments: [red/green] [0/-1/n]"));
                 return;
             }
             
@@ -106,10 +106,7 @@ void loop() {
                 return;
             }
             
-            if (strcmp(arg2, "cron") == 0) {
-                // Handle cron scheduling
-                USB.println(F("Cron scheduling not implemented yet"));
-            } else if (isInteger(arg2)) {
+            if (isInteger(arg2)) {
                 int time_ms = atoi(arg2);
                 if (time_ms < -1) {
                     USB.println(F("Time value must be -1, 0, or positive"));
@@ -124,7 +121,7 @@ void loop() {
                         USB.print(F("Blinking red LED for "));
                         USB.print(time_ms);
                         USB.println(F(" milliseconds"));
-                        // Actual blinking implementation would go here
+                        Utils.blinkRedLED(time_ms, -1);
                     }
                 } else if (strcmp(arg1, "green") == 0) {
                     if (time_ms == 0) utils.setLED(LED1, LED_ON);
@@ -210,7 +207,7 @@ void loop() {
             USB.println(arg1);
             // Implementation for writing value
         } else {
-            USB.println(F("Unknown command. Available commands: blink, set, unset, get, read, write"));
+            USB.printf("Unknown command: %s. Available commands: blink, set, unset, get, read, write", &command);
         }
     }
 }
