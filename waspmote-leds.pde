@@ -4,30 +4,25 @@
 #include <string.h>
 
 WaspUtils utils;
-
-// Global variables for scheduled command execution
 char scheduledCommand[64] = "";
 bool alarmScheduled = false;
-
-unsigned long nextRedBlink = 0;  // 0 means no blinking
-unsigned long nextGreenBlink = 0;  // 0 means no blinking
-int redBlinkInterval = 0;  // Store the interval for repeating blinks
+unsigned long nextRedBlink = 0;
+unsigned long nextGreenBlink = 0;
+int redBlinkInterval = 0;
 int greenBlinkInterval = 0;
 int address = 1024;
 
 bool getToken(char *command, int len, int &idx, char *token, int maxLen) {
     int tokenIdx = 0;
-    // Skip initial whitespace
     while (idx < len && isspace(command[idx])) idx++;
     if (idx >= len) return false;
-    
     if (command[idx] == '"') {
-        idx++; // skip opening quote
+        idx++;
         while (idx < len && command[idx] != '"' && tokenIdx < maxLen - 1) {
             token[tokenIdx++] = command[idx++];
         }
         token[tokenIdx] = '\0';
-        if (idx < len && command[idx] == '"') idx++; // skip closing quote
+        if (idx < len && command[idx] == '"') idx++;
     } else {
         while (idx < len && !isspace(command[idx]) && tokenIdx < maxLen - 1) {
             token[tokenIdx++] = command[idx++];
@@ -49,7 +44,6 @@ bool parseCommand(char* command, int len, char* cmd, char* arg1, char* arg2) {
     if (!getToken(command, len, idx, arg2, 64)) {
         arg2[0] = '\0';
     }
-
     while (idx < len && isspace(command[idx])) idx++;
     if (idx < len) {
         USB.println(F("Too many arguments"));
@@ -67,58 +61,56 @@ void setup() {
 
 void loop() {
     unsigned long currentMillis = millis();
-    
-    // Handle red LED blinking
     if (nextRedBlink > 0 && currentMillis >= nextRedBlink) {
         uint8_t currentRedState = utils.getLED(LED0);
         uint8_t newRedState = (currentRedState == LED_ON) ? LED_OFF : LED_ON;
         utils.setLED(LED0, newRedState);
-        
         if (redBlinkInterval > 0) {
             nextRedBlink = currentMillis + redBlinkInterval;
         } else {
             nextRedBlink = 0;
         }
     }
-    
-    // Handle green LED blinking
     if (nextGreenBlink > 0 && currentMillis >= nextGreenBlink) {
         uint8_t currentGreenState = utils.getLED(LED1);
         uint8_t newGreenState = (currentGreenState == LED_ON) ? LED_OFF : LED_ON;
         utils.setLED(LED1, newGreenState);
-        
         if (greenBlinkInterval > 0) {
             nextGreenBlink = currentMillis + greenBlinkInterval;
         } else {
             nextGreenBlink = 0;
         }
     }
-
-    // Check if the RTC alarm interrupt has occurred (scheduled command execution)
     if (intFlag & RTC_INT) {
         intFlag &= ~RTC_INT;
         if (alarmScheduled) {
             USB.println(F("Executing scheduled command: "));
             USB.println(scheduledCommand);
-
             char schCmd[10], schArg1[64], schArg2[64];
             int lenSch = strlen(scheduledCommand);
             if (parseCommand(scheduledCommand, lenSch, schCmd, schArg1, schArg2)) {
                 if (strcmp(schCmd, "blink") == 0) {
                     handleBlinkCommand(schArg1, schArg2);
+                } else if (strcmp(schCmd, "set") == 0) {
+                    handleSetCommand(schArg1, schArg2);
+                } else if (strcmp(schCmd, "unset") == 0) {
+                    handleUnsetCommand(schArg1, schArg2);
+                } else if (strcmp(schCmd, "get") == 0) {
+                    handleGetCommand(schArg1, schArg2);
+                } else if (strcmp(schCmd, "read") == 0) {
+                    handleReadCommand(schArg1, schArg2);
+                } else if (strcmp(schCmd, "write") == 0) {
+                    handleWriteCommand(schArg1, schArg2);
+                } else {
+                    USB.println(F("Unknown scheduled command"));
                 }
-                // Add additional commands here as needed.
             }
-            alarmScheduled = false; // Reset the flag after execution
+            alarmScheduled = false;
         }
     }
-    
-    // Read USB command input
     char command[128];
     char cmd[10], arg1[64], arg2[64];
-    
     int8_t len = read_USB_command(command, sizeof(command) - 1);
-    
     if (len > 0) {
         if (parseCommand(command, len, cmd, arg1, arg2)) {
             if (strcmp(cmd, "blink") == 0) {
@@ -183,8 +175,6 @@ bool isTime(char *time) {
     }
     return true;
 }
-
-//--- Command Handlers ---
 
 void handleBlinkCommand(char* arg1, char* arg2) {
     if (arg1[0] == '\0' || arg2[0] == '\0') {
@@ -365,36 +355,27 @@ void handleWriteCommand(char* arg1, char* arg2) {
     USB.printf("Wrote value %d in position %d\n", value, position);
 }
 
-// The schedule command expects two quoted strings:
-//   1. The alarm parameters string in CSV format: "dd:hh:mm:ss,RTC_ABSOLUTE,RTC_ALM1_MODE2"
-//   2. The command to execute when the alarm triggers, e.g. "blink red 200"
 void handleScheduleCommand(char* alarmParamStr, char* schedCmdStr) {
     if (alarmParamStr[0] == '\0' || schedCmdStr[0] == '\0') {
         USB.println(F("schedule requires two quoted arguments: alarm parameters and scheduled command"));
         return;
     }
-    
-    // Split alarmParamStr by commas into three parts.
     char timeStr[32], offsetStr[32], modeStr[32];
     char *token = strtok(alarmParamStr, ",");
     if (token != NULL) {
         strncpy(timeStr, token, sizeof(timeStr)-1);
         timeStr[sizeof(timeStr)-1] = '\0';
     } else { USB.println(F("Invalid alarm format")); return; }
-    
     token = strtok(NULL, ",");
     if (token != NULL) {
         strncpy(offsetStr, token, sizeof(offsetStr)-1);
         offsetStr[sizeof(offsetStr)-1] = '\0';
     } else { USB.println(F("Invalid alarm format")); return; }
-    
     token = strtok(NULL, ",");
     if (token != NULL) {
         strncpy(modeStr, token, sizeof(modeStr)-1);
         modeStr[sizeof(modeStr)-1] = '\0';
     } else { USB.println(F("Invalid alarm format")); return; }
-    
-    // Convert offset string to constant value.
     int offsetVal = 0;
     if (strcmp(offsetStr, "RTC_ABSOLUTE") == 0) {
         offsetVal = RTC_ABSOLUTE;
@@ -404,8 +385,6 @@ void handleScheduleCommand(char* alarmParamStr, char* schedCmdStr) {
         USB.println(F("Invalid offset value"));
         return;
     }
-    
-    // Convert mode string to constant value.
     int modeVal = 0;
     if (strcmp(modeStr, "RTC_ALM1_MODE1") == 0) {
         modeVal = RTC_ALM1_MODE1;
@@ -423,16 +402,10 @@ void handleScheduleCommand(char* alarmParamStr, char* schedCmdStr) {
         USB.println(F("Invalid alarm mode"));
         return;
     }
-    
-    // Set Alarm1 using the string version.
     RTC.setAlarm1(timeStr, offsetVal, modeVal);
     USB.print(F("Scheduled alarm set: "));
     USB.println(RTC.getAlarm1());
-    
-    // Save the scheduled command in a global variable.
     strncpy(scheduledCommand, schedCmdStr, sizeof(scheduledCommand)-1);
     scheduledCommand[sizeof(scheduledCommand)-1] = '\0';
     alarmScheduled = true;
 }
-
-
