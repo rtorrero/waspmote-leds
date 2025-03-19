@@ -233,9 +233,7 @@ void handleSetCommand(char* arg1, char* arg2) {
     }
     
     if (strcmp(arg1, "pin") == 0) {
-        USB.print(F("Setting pin "));
-        USB.println(arg2);
-        // Implementation for setting pin
+        handleSetPin(arg2);
     } else if (strcmp(arg1, "rtc") == 0) {
         USB.print(F("Setting RTC to "));
         USB.println(arg2);
@@ -245,20 +243,56 @@ void handleSetCommand(char* arg1, char* arg2) {
     }
 }
 
+void handleSetPin(char* arg2) {
+    if (!isInteger(arg2)) {
+        USB.println(F("set pin requires a numerical value"));
+        return;
+    }
+    int pin = atoi(arg2);
+    if (pin < 1 || pin > 8) {
+        USB.println(F("The pin must be between 1 and 8"));
+        return;
+    }
+    pinMode(pin, OUTPUT); 
+    digitalWrite(pin, HIGH); 
+    USB.print(F("Setted pin "));
+    USB.println(arg2);
+}
+
 void handleUnsetCommand(char* arg1, char* arg2) {
     // Handle unset command: unset [pin] [digital1/digital2/...]
     if (arg1[0] == '\0' || arg2[0] == '\0') {
         USB.println(F("unset requires two arguments: [pin] [value]"));
         return;
     }
-    
+    if (!isInteger(arg2)) {
+        USB.println(F("Unset requires a numerical position"));
+        return;
+    }
     if (strcmp(arg1, "pin") == 0) {
-        USB.print(F("Unsetting pin "));
-        USB.println(arg2);
-        // Implementation for unsetting pin
+        handleUnsetPin(arg2);
     } else {
         USB.println(F("First argument for unset must be 'pin'"));
     }
+}
+
+void handleUnsetPin(char* arg2) {
+    if (!isInteger(arg2)) {
+        USB.println(F("Unset pin requires a numerical value"));
+        return;
+    }
+    int pin = atoi(arg2);
+    if (pin < 1 || pin > 8) {
+        USB.println(F("The pin must be between 1 and 8"));
+        return;
+    }
+    // no error, but might not work, alternative using macros: 
+    //     const uint8_t digitalPins[8] = {DIGITAL1, DIGITAL2, DIGITAL3, DIGITAL4, DIGITAL5, DIGITAL6, DIGITAL7, DIGITAL8};
+    //     uint8_t selectedPin = digitalPins[pin - 1];
+    pinMode(pin, OUTPUT); 
+    digitalWrite(pin, LOW); 
+    USB.print(F("Unsetted pin "));
+    USB.println(arg2);
 }
 
 void handleGetCommand(char* arg1, char* arg2) {
