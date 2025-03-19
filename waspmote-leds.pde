@@ -52,7 +52,7 @@ void loop() {
     }
 
     char command[64]; // Buffer for command input
-    char cmd[10], arg1[20], arg2[20]; // Buffers for parsed components
+    char cmd[10], arg1[21], arg2[21]; // Buffers for parsed components
     
     int8_t len = read_USB_command(command, sizeof(command) - 1);
     
@@ -148,7 +148,7 @@ bool parseCommand(char* command, int len, char* cmd, char* arg1, char* arg2) {
     int arg1Idx = 0;
     arg1[0] = '\0'; // Initialize to empty string
     if (idx < len) {
-        while (idx < len && !isspace(command[idx]) && arg1Idx < 19) {
+        while (idx < len && !isspace(command[idx]) && arg1Idx < 20) {
             arg1[arg1Idx++] = command[idx++];
         }
         arg1[arg1Idx] = '\0';
@@ -161,7 +161,7 @@ bool parseCommand(char* command, int len, char* cmd, char* arg1, char* arg2) {
     int arg2Idx = 0;
     arg2[0] = '\0'; // Initialize to empty string
     if (idx < len) {
-        while (idx < len && !isspace(command[idx]) && arg2Idx < 19) {
+        while (idx < len && !isspace(command[idx]) && arg2Idx < 20) {
             arg2[arg2Idx++] = command[idx++];
         }
         arg2[arg2Idx] = '\0';
