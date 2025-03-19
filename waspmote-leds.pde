@@ -8,19 +8,13 @@ WaspUtils utils;
 // Global variables for scheduled command execution
 char scheduledCommand[64] = "";
 bool alarmScheduled = false;
-//volatile uint8_t intFlag = 0; // This flag is set by the RTC interrupt (RTC_INT)
 
-// Blink variables and EEPROM address remain unchanged
 unsigned long nextRedBlink = 0;  // 0 means no blinking
 unsigned long nextGreenBlink = 0;  // 0 means no blinking
 int redBlinkInterval = 0;  // Store the interval for repeating blinks
 int greenBlinkInterval = 0;
 int address = 1024;
 
-//--- Helper function: getToken ---
-// Reads a token from 'command' starting at index 'idx' (which is updated)
-// A token is either a group of non-space characters or if it starts with a double quote,
-// all characters up to the matching double quote (quotes are not included).
 bool getToken(char *command, int len, int &idx, char *token, int maxLen) {
     int tokenIdx = 0;
     // Skip initial whitespace
@@ -43,24 +37,19 @@ bool getToken(char *command, int len, int &idx, char *token, int maxLen) {
     return true;
 }
 
-//--- Modified parseCommand ---
-// This function now supports quoted strings for arguments.
 bool parseCommand(char* command, int len, char* cmd, char* arg1, char* arg2) {
     int idx = 0;
-    // Get first token as the command name.
     if (!getToken(command, len, idx, cmd, 10)) {
         USB.println(F("Invalid command"));
         return false;
     }
-    // Get second token (if any)
     if (!getToken(command, len, idx, arg1, 64)) {
         arg1[0] = '\0';
     }
-    // Get third token (if any)
     if (!getToken(command, len, idx, arg2, 64)) {
         arg2[0] = '\0';
     }
-    // Check for extra characters (non-space)
+
     while (idx < len && isspace(command[idx])) idx++;
     if (idx < len) {
         USB.println(F("Too many arguments"));
@@ -105,14 +94,13 @@ void loop() {
         }
     }
 
-    // Check if the RTC alarm interrupt has occurred
-    // (In the real device, intFlag is set by the RTC interrupt)
+    // Check if the RTC alarm interrupt has occurred (scheduled command execution)
     if (intFlag & RTC_INT) {
-        intFlag &= ~RTC_INT;  // Clear the RTC interrupt flag
+        intFlag &= ~RTC_INT;
         if (alarmScheduled) {
             USB.println(F("Executing scheduled command: "));
             USB.println(scheduledCommand);
-            // Parse and dispatch the scheduled command.
+
             char schCmd[10], schArg1[64], schArg2[64];
             int lenSch = strlen(scheduledCommand);
             if (parseCommand(scheduledCommand, lenSch, schCmd, schArg1, schArg2)) {
@@ -126,7 +114,7 @@ void loop() {
     }
     
     // Read USB command input
-    char command[128]; // Increase buffer size to allow longer schedule strings.
+    char command[128];
     char cmd[10], arg1[64], arg2[64];
     
     int8_t len = read_USB_command(command, sizeof(command) - 1);
@@ -377,7 +365,6 @@ void handleWriteCommand(char* arg1, char* arg2) {
     USB.printf("Wrote value %d in position %d\n", value, position);
 }
 
-//--- New: handleScheduleCommand ---
 // The schedule command expects two quoted strings:
 //   1. The alarm parameters string in CSV format: "dd:hh:mm:ss,RTC_ABSOLUTE,RTC_ALM1_MODE2"
 //   2. The command to execute when the alarm triggers, e.g. "blink red 200"
