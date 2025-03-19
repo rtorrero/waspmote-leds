@@ -226,39 +226,74 @@ void handleBlinkCommand(char* arg1, char* arg2) {
 }
 
 void handleSetCommand(char* arg1, char* arg2) {
-    // Handle set command: set [pin/rtc] [digital1/digital2/...]
+    // Handle set command: set [digital/rtc] [1/2/...]
     if (arg1[0] == '\0' || arg2[0] == '\0') {
-        USB.println(F("set requires two arguments: [pin/rtc] [value]"));
+        USB.println(F("set requires two arguments: [digital/rtc] [value]"));
         return;
     }
-    
-    if (strcmp(arg1, "pin") == 0) {
-        USB.print(F("Setting pin "));
-        USB.println(arg2);
-        // Implementation for setting pin
+    if (strcmp(arg1, "digital") == 0) {
+        handleSetPin(arg2);
     } else if (strcmp(arg1, "rtc") == 0) {
         USB.print(F("Setting RTC to "));
         USB.println(arg2);
         // Implementation for setting RTC
     } else {
-        USB.println(F("First argument for set must be 'pin' or 'rtc'"));
+        USB.println(F("First argument for set must be 'digital' or 'rtc'"));
     }
 }
 
+void handleSetPin(char* arg2) {
+    if (!isInteger(arg2)) {
+        USB.println(F("set digital requires a numerical value"));
+        return;
+    }
+    int pin = atoi(arg2);
+    if (pin < 1 || pin > 8) {
+        USB.println(F("The pin must be between 1 and 8"));
+        return;
+    }
+    const uint8_t digitalPins[8] = {DIGITAL1, DIGITAL2, DIGITAL3, DIGITAL4, DIGITAL5, DIGITAL6, DIGITAL7, DIGITAL8};
+    uint8_t selectedPin = digitalPins[pin - 1];
+    pinMode(selectedPin, OUTPUT); 
+    digitalWrite(selectedPin, HIGH);
+    USB.print(F("Setted pin "));
+    USB.println(arg2);
+}
+
 void handleUnsetCommand(char* arg1, char* arg2) {
-    // Handle unset command: unset [pin] [digital1/digital2/...]
+    // Handle unset command: unset [digital] [1/2/...]
     if (arg1[0] == '\0' || arg2[0] == '\0') {
         USB.println(F("unset requires two arguments: [pin] [value]"));
         return;
     }
-    
-    if (strcmp(arg1, "pin") == 0) {
-        USB.print(F("Unsetting pin "));
-        USB.println(arg2);
-        // Implementation for unsetting pin
-    } else {
-        USB.println(F("First argument for unset must be 'pin'"));
+    if (!isInteger(arg2)) {
+        USB.println(F("Unset requires a numerical position"));
+        return;
     }
+    if (strcmp(arg1, "digital") == 0) {
+        handleUnsetPin(arg2);
+    } else {
+        USB.println(F("First argument for unset must be 'digital'"));
+    }
+}
+
+void handleUnsetPin(char* arg2) {
+    if (!isInteger(arg2)) { 
+        USB.println(F("Unset pin requires a numerical value"));
+        return;
+    }
+    int pin = atoi(arg2);
+    if (pin < 1 || pin > 8) {
+        USB.println(F("The pin must be between 1 and 8"));
+        return;
+    }
+
+    const uint8_t digitalPins[8] = {DIGITAL1, DIGITAL2, DIGITAL3, DIGITAL4, DIGITAL5, DIGITAL6, DIGITAL7, DIGITAL8};
+    uint8_t selectedPin = digitalPins[pin - 1];
+    pinMode(selectedPin, OUTPUT); 
+    digitalWrite(selectedPin, LOW); 
+    USB.print(F("Unsetted pin "));
+    USB.println(arg2);
 }
 
 void handleGetCommand(char* arg1, char* arg2) {
@@ -303,14 +338,5 @@ void handleWriteCommand(char* arg1, char* arg2) {
     USB.println(arg1);
     // Implementation for writing value
 }
-
-
-
-
-
-
-
-
-
 
 
