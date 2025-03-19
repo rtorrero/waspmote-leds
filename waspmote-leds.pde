@@ -9,8 +9,6 @@ unsigned long nextRedBlink = 0;  // 0 means no blinking
 unsigned long nextGreenBlink = 0;  // 0 means no blinking
 int redBlinkInterval = 0;  // Store the interval for repeating blinks
 int greenBlinkInterval = 0;
-bool redLedState = false;
-bool greenLedState = false;
 int address = 1024;
 
 void setup() {
@@ -22,13 +20,13 @@ void setup() {
 
 void loop() {
     unsigned long currentMillis = millis();
-    // USB.printf("Current time: %lu", currentMillis);
-    // USB.printf("Current intervals: red = %d, green = %d", redBlinkInterval, greenBlinkInterval);
-    // USB.printf("Next red blink: %lu, next green blink: %lu", nextRedBlink, nextGreenBlink);
+    
     // Handle red LED blinking
     if (nextRedBlink > 0 && currentMillis >= nextRedBlink) {
-        redLedState = !redLedState;
-        utils.setLED(LED0, redLedState ? LED_ON : LED_OFF);
+        // Retrieve the current state and toggle it
+        uint8_t currentRedState = utils.getLED(LED0);
+        uint8_t newRedState = (currentRedState == LED_ON) ? LED_OFF : LED_ON;
+        utils.setLED(LED0, newRedState);
         
         // Schedule next blink if interval is set
         if (redBlinkInterval > 0) {
@@ -40,10 +38,10 @@ void loop() {
     
     // Handle green LED blinking
     if (nextGreenBlink > 0 && currentMillis >= nextGreenBlink) {
-        greenLedState = !greenLedState;
-        utils.setLED(LED1, greenLedState ? LED_ON : LED_OFF);
+        uint8_t currentGreenState = utils.getLED(LED1);
+        uint8_t newGreenState = (currentGreenState == LED_ON) ? LED_OFF : LED_ON;
+        utils.setLED(LED1, newGreenState);
         
-        // Schedule next blink if interval is set
         if (greenBlinkInterval > 0) {
             nextGreenBlink = currentMillis + greenBlinkInterval;
         } else {
@@ -202,42 +200,38 @@ void handleBlinkCommand(char* arg1, char* arg2) {
         if (strcmp(arg1, "red") == 0) {
             if (time_ms == 0) {
                 redBlinkInterval = 0;
+                nextRedBlink = 0;
                 utils.setLED(LED0, LED_ON);
-                redLedState = true;
             }
             else if (time_ms == -1) {
                 redBlinkInterval = 0;
+                nextRedBlink = 0;
                 utils.setLED(LED0, LED_OFF);
-                redLedState = false;
             }
             else {
-                // Implement blinking for specified milliseconds
                 USB.print(F("Blinking red LED for "));
                 USB.print(time_ms);
                 USB.println(F(" milliseconds"));
                 redBlinkInterval = time_ms;
-                nextRedBlink = millis() + time_ms;  // Schedule first blink
-                utils.setLED(LED0, LED_ON);  // Start with LED on
-                redLedState = true;
+                nextRedBlink = millis() + time_ms;
+                utils.setLED(LED0, LED_ON);
             }
         } else if (strcmp(arg1, "green") == 0) {
             if (time_ms == 0) {
                 greenBlinkInterval = 0;
+                nextGreenBlink = 0;
                 utils.setLED(LED1, LED_ON);
-                greenLedState = true;
             } else if (time_ms == -1) {
                 greenBlinkInterval = 0;
+                nextGreenBlink = 0;
                 utils.setLED(LED1, LED_OFF);
-                greenLedState = false;
             } else {
-                // Implement blinking for specified milliseconds
                 USB.print(F("Blinking green LED for "));
                 USB.print(time_ms);
                 USB.println(F(" milliseconds"));
                 greenBlinkInterval = time_ms;
-                nextGreenBlink = millis() + time_ms;  // Schedule first blink
-                utils.setLED(LED1, LED_ON);  // Start with LED on
-                greenLedState = true;
+                nextGreenBlink = millis() + time_ms;
+                utils.setLED(LED1, LED_ON);
             }
         }
     } else {
@@ -254,10 +248,6 @@ void handleSetCommand(char* arg1, char* arg2) {
     if (strcmp(arg1, "digital") == 0) {
         handleSetPin(arg2);
     } else if (strcmp(arg1, "rtc") == 0) {
-        USB.print(F("Setting RTC to "));
-        USB.println(arg2);
-        // Implementation for setting pin
-    } else if (strcmp(arg1, "rtc") == 0) {
         if (!isTime(arg2)) {
             USB.println(F("set time requires time formatted as yy:mm:dd:dow:hh:mm:ss"));
             return;
@@ -269,6 +259,7 @@ void handleSetCommand(char* arg1, char* arg2) {
         USB.println(F("First argument for set must be 'digital' or 'rtc'"));
     }
 }
+
 void handleSetPin(char* arg2) {
     if (!isInteger(arg2)) {
         USB.println(F("set digital requires a numerical value"));
@@ -286,7 +277,6 @@ void handleSetPin(char* arg2) {
     USB.print(F("Setted pin "));
     USB.println(arg2);
 }
-
 
 void handleUnsetCommand(char* arg1, char* arg2) {
     // Handle unset command: unset [digital] [1/2/...]
@@ -315,7 +305,6 @@ void handleUnsetPin(char* arg2) {
         USB.println(F("The pin must be between 1 and 8"));
         return;
     }
-
     const uint8_t digitalPins[8] = {DIGITAL1, DIGITAL2, DIGITAL3, DIGITAL4, DIGITAL5, DIGITAL6, DIGITAL7, DIGITAL8};
     uint8_t selectedPin = digitalPins[pin - 1];
     pinMode(selectedPin, OUTPUT); 
@@ -360,13 +349,13 @@ void handleReadCommand(char* arg1, char* arg2) {
 }
 
 void handleWriteCommand(char* arg1, char* arg2) {
-    // Handle write command: write [value]
+    // Handle write command: write [position] [value]
     if (arg1[0] == '\0' || arg2[0] == '\0') {
         USB.println(F("write requires two arguments: [position] [value]"));
         return;
     }
     if (!isInteger(arg1) || !isInteger(arg2)) {
-        USB.println(F("read requires a numerical position and a numerical value"));
+        USB.println(F("write requires a numerical position and a numerical value"));
         return;
     }
     int position = atoi(arg1);
@@ -378,3 +367,5 @@ void handleWriteCommand(char* arg1, char* arg2) {
     Utils.writeEEPROM(address + position - 1, value);
     USB.printf("Wrote value %d in position %d\n", value, position);
 }
+
+
