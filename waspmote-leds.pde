@@ -315,9 +315,7 @@ void handleReadCommand(char* arg1, char* arg2) {
         USB.println(F("position must be between 0 and 3071"));
         return;
     }
-    USB.print(F("Reading value: "));
-    USB.println(arg1);
-    USB.println(Utils.readEEPROM(address + position));
+    USB.printf("Reading value: %d\n%d\n", position, Utils.readEEPROM(address + position - 1));
 }
 
 void handleWriteCommand(char* arg1, char* arg2) {
@@ -336,9 +334,7 @@ void handleWriteCommand(char* arg1, char* arg2) {
         return;
     }
     int value = atoi(arg2);
-    Utils.writeEEPROM(address, value);
-    USB.print(F("Wrote value "));
-    USB.print(arg2);
-    USB.print(F(" in position "));
-    USB.println(arg1);
+    Utils.writeEEPROM(address + position - 1, value);
+    USB.printf("Wrote value %d in position %d\n", value, position);
 }
+
