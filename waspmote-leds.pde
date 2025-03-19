@@ -11,9 +11,11 @@ int redBlinkInterval = 0;  // Store the interval for repeating blinks
 int greenBlinkInterval = 0;
 bool redLedState = false;
 bool greenLedState = false;
+int address = 1024;
 
 void setup() {
     USB.ON();
+    RTC.ON();
     USB.println(F("Enter command according to format: [command] [argument1] [argument2]"));
     USB.println(F("Available commands: blink, set, unset, get, read, write"));
 }
@@ -50,7 +52,7 @@ void loop() {
     }
 
     char command[64]; // Buffer for command input
-    char cmd[10], arg1[20], arg2[20]; // Buffers for parsed components
+    char cmd[10], arg1[21], arg2[21]; // Buffers for parsed components
     
     int8_t len = read_USB_command(command, sizeof(command) - 1);
     
@@ -70,7 +72,7 @@ void loop() {
             } else if (strcmp(cmd, "write") == 0) {
                 handleWriteCommand(arg1, arg2);
             } else {
-                USB.printf("Unknown command: %s. Available commands: blink, set, unset, get, read, write", cmd);
+                USB.println(F("Unknown command. Available commands: blink, set, unset, get, read, write"));
             }
         }
     }
@@ -104,6 +106,24 @@ bool isInteger(char *number) {
   return true;
 }
 
+bool isTime(char *time) {
+    if (strlen(time) != 20) {
+        return false;
+    }
+    for (int i = 0; i < 20; i++) {
+        if (i == 2 || i == 5 || i == 8 || i == 11 || i == 14 || i == 17) {
+            if (time[i] != ':') {
+                return false;
+            }
+        } else {
+            if (!isdigit(time[i])) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 bool parseCommand(char* command, int len, char* cmd, char* arg1, char* arg2) {
     int idx = 0; // Index to traverse the 'command' array
     
@@ -128,7 +148,7 @@ bool parseCommand(char* command, int len, char* cmd, char* arg1, char* arg2) {
     int arg1Idx = 0;
     arg1[0] = '\0'; // Initialize to empty string
     if (idx < len) {
-        while (idx < len && !isspace(command[idx]) && arg1Idx < 19) {
+        while (idx < len && !isspace(command[idx]) && arg1Idx < 20) {
             arg1[arg1Idx++] = command[idx++];
         }
         arg1[arg1Idx] = '\0';
@@ -141,7 +161,7 @@ bool parseCommand(char* command, int len, char* cmd, char* arg1, char* arg2) {
     int arg2Idx = 0;
     arg2[0] = '\0'; // Initialize to empty string
     if (idx < len) {
-        while (idx < len && !isspace(command[idx]) && arg2Idx < 19) {
+        while (idx < len && !isspace(command[idx]) && arg2Idx < 20) {
             arg2[arg2Idx++] = command[idx++];
         }
         arg2[arg2Idx] = '\0';
@@ -236,12 +256,19 @@ void handleSetCommand(char* arg1, char* arg2) {
     } else if (strcmp(arg1, "rtc") == 0) {
         USB.print(F("Setting RTC to "));
         USB.println(arg2);
-        // Implementation for setting RTC
+        // Implementation for setting pin
+    } else if (strcmp(arg1, "rtc") == 0) {
+        if (!isTime(arg2)) {
+            USB.println(F("set time requires time formatted as yy:mm:dd:dow:hh:mm:ss"));
+            return;
+        }
+        USB.print(F("Set RTC to "));
+        USB.println(arg2);
+        RTC.setTime(arg2);
     } else {
         USB.println(F("First argument for set must be 'digital' or 'rtc'"));
     }
 }
-
 void handleSetPin(char* arg2) {
     if (!isInteger(arg2)) {
         USB.println(F("set digital requires a numerical value"));
@@ -259,6 +286,7 @@ void handleSetPin(char* arg2) {
     USB.print(F("Setted pin "));
     USB.println(arg2);
 }
+
 
 void handleUnsetCommand(char* arg1, char* arg2) {
     // Handle unset command: unset [digital] [1/2/...]
@@ -302,41 +330,51 @@ void handleGetCommand(char* arg1, char* arg2) {
         USB.println(F("get requires one argument: [rtc/memory]"));
         return;
     }
-    
     if (strcmp(arg1, "rtc") == 0) {
-        USB.print(F("Current RTC time: "));
+        USB.print(F("Current date: "));
         USB.println(RTC.getTime());
-        // Implementation for getting RTC
     } else if (strcmp(arg1, "memory") == 0) {
-        USB.println(F("Getting memory information"));
-        // Implementation for getting memory
+        USB.print(F("Available memory (Bytes): "));
+        USB.println(freeMemory());
     } else {
         USB.println(F("First argument for get must be 'rtc' or 'memory'"));
     }
 }
 
 void handleReadCommand(char* arg1, char* arg2) {
-    // Handle read command: read [value]
+    // Handle read command: read [position]
     if (arg1[0] == '\0') {
-        USB.println(F("read requires one argument: [value]"));
+        USB.println(F("read requires one argument: [position]"));
         return;
     }
-    
-    USB.print(F("Reading value: "));
-    USB.println(arg1);
-    // Implementation for reading value
+    if (!isInteger(arg1)) {
+        USB.println(F("read requires a numerical position"));
+        return;
+    }
+    int position = atoi(arg1);
+    if (position < 0 || position > 3071) {
+        USB.println(F("position must be between 0 and 3071"));
+        return;
+    }
+    USB.printf("Reading value: %d\n%d\n", position, Utils.readEEPROM(address + position - 1));
 }
 
 void handleWriteCommand(char* arg1, char* arg2) {
     // Handle write command: write [value]
-    if (arg1[0] == '\0') {
-        USB.println(F("write requires one argument: [value]"));
+    if (arg1[0] == '\0' || arg2[0] == '\0') {
+        USB.println(F("write requires two arguments: [position] [value]"));
         return;
     }
-    
-    USB.print(F("Writing value: "));
-    USB.println(arg1);
-    // Implementation for writing value
+    if (!isInteger(arg1) || !isInteger(arg2)) {
+        USB.println(F("read requires a numerical position and a numerical value"));
+        return;
+    }
+    int position = atoi(arg1);
+    if (position < 0 || position > 3071) {
+        USB.println(F("position must be between 0 and 3071"));
+        return;
+    }
+    int value = atoi(arg2);
+    Utils.writeEEPROM(address + position - 1, value);
+    USB.printf("Wrote value %d in position %d\n", value, position);
 }
-
-
