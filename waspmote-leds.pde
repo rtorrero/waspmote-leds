@@ -337,4 +337,3 @@ void handleWriteCommand(char* arg1, char* arg2) {
     Utils.writeEEPROM(address + position - 1, value);
     USB.printf("Wrote value %d in position %d\n", value, position);
 }
-
