@@ -25,19 +25,19 @@ Controls LED blinking behavior.
 Configure device settings.
 
 - **Argument1**: Setting type
-  - `pin` - Configure a digital pin
+  - `digital` - Configure a digital pin
   - `rtc` - Configure real-time clock
 - **Argument2**:
-  - For pins: `digital1`, `digital2`, etc.
+  - For pins: `1`, `2`, etc.
   - For RTC: Configuration parameters
 
 ### `unset`
 Remove configuration.
 
 - **Argument1**: Setting type
-  - `pin` - Unconfigure a digital pin
+  - `digital` - Unconfigure a digital pin
 - **Argument2**:
-  - `digital1`, `digital2`, etc.
+  - `1`, `2`, etc.
 
 ### `get`
 Retrieve device information.
